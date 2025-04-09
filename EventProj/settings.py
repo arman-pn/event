@@ -11,23 +11,39 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
-from decouple import Config
+from decouple import config, Csv
+import os
+from dotenv import load_dotenv
 
+
+print("📁 Current DIR:", os.getcwd())
+
+
+load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
+DEBUG = os.getenv("DEBUG", "False") == "True"
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
+
+
+print("✅ SECRET_KEY:", SECRET_KEY)
+print("✅ DEBUG:", DEBUG)
+print("✅ ALLOWED_HOSTS:", ALLOWED_HOSTS)
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-config = Config()
-# SECURITY WARNING: keep the secret key used in production secret!
-# استفاده از مقادیر ذخیره شده در فایل .env
-SECRET_KEY = config('SECRET_KEY')
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=lambda v: v.split(','))
+
+
+
+# SECRET_KEY = config('SECRET_KEY')
+# DEBUG = config('DEBUG', cast=bool, default=True)
+# ALLOWED_HOSTS = config('ALLOWED_HOSTS',  cast=Csv())
+# ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+
 
 
 

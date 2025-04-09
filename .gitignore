@@ -30,6 +30,6 @@ env/
 # Windows
 Thumbs.db
 
-# migrations (اختیاری، ولی بهتره نگه داری)
+# migrations 
 # **/migrations/
 # !**/migrations/__init__.py
