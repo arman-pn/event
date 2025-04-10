@@ -4,7 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .models import Event, EventMembership, EventLog
 from .serializers import EventSerializer, EventLogSerializer
-from .permissions import IsCreatorOrReadOnly
+from .utils import log_event_action
+
 
 # Event View (GET, POST, PUT, DELETE operations for Event)
 class EventView(APIView):
@@ -26,7 +27,8 @@ class EventView(APIView):
     def post(self, request):
         serializer = EventSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(creator=request.user)  # Assume the user is the creator
+            event = serializer.save(creator=request.user)
+            log_event_action(event, f"{request.user.username} created the event.", metadata="event created")  # Assume the user is the creator
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -43,6 +45,8 @@ class EventView(APIView):
         serializer = EventSerializer(event, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
+            log_event_action(event, f"{request.user.username} updated the event.", metadata="event updated")
+
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -56,7 +60,9 @@ class EventView(APIView):
         if event.creator != request.user:
             return Response({"error": "You do not have permission to delete this event."},
                         status=status.HTTP_403_FORBIDDEN)
+        log_event_action(event, f"{request.user.username} deleted the event.", metadata="event deleted")
         event.delete()
+
         return Response({"message": "Event deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -69,6 +75,12 @@ class EventMembershipView(APIView):
             event = Event.objects.get(id=event_id)
         except Event.DoesNotExist:
             return Response({"error": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # ⛔️ جلوگیری از عضویت در ایونت‌های بسته
+        if event.status == 'closed':
+            return Response({"error": "This event is closed for joining."}, status=status.HTTP_403_FORBIDDEN)
+
+        
 
         # Check if user is already a member
         if EventMembership.objects.filter(user=request.user, event=event).exists():
@@ -79,6 +91,8 @@ class EventMembershipView(APIView):
             return Response({"error": "Event is full."}, status=status.HTTP_400_BAD_REQUEST)
 
         membership = EventMembership.objects.create(user=request.user, event=event)
+        log_event_action(event, f"{request.user.username} joined the event.", metadata="joined via API")
+
         return Response({"message": "You have successfully joined the event."}, status=status.HTTP_201_CREATED)
 
 
@@ -88,20 +102,24 @@ class EventLogView(APIView):
 
     def get(self, request, event_id=None):
         if event_id:
-            logs = EventLog.objects.filter(event_id=event_id)
-            serializer = EventLogSerializer(logs, many=True)
-            return Response(serializer.data)
-        else:
-            logs = EventLog.objects.all()
+            try:
+                event = Event.objects.get(id=event_id)
+            except Event.DoesNotExist:
+                return Response({"error": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if event.creator != request.user:
+                return Response({"error": "You are not authorized to view logs for this event."},
+                                status=status.HTTP_403_FORBIDDEN)
+
+            logs = EventLog.objects.filter(event=event)
             serializer = EventLogSerializer(logs, many=True)
             return Response(serializer.data)
 
-    def post(self, request):
-        serializer = EventLogSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # نمایش همه‌ی لاگ‌هایی که کاربر سازنده‌ی ایونتشونه
+            logs = EventLog.objects.filter(event__creator=request.user)
+            serializer = EventLogSerializer(logs, many=True)
+            return Response(serializer.data)
 
 
 # Event Members View (GET members of a specific event)
@@ -119,5 +137,30 @@ class EventMembersView(APIView):
             return Response({"error": "You are not authorized to view members."}, status=status.HTTP_403_FORBIDDEN)
 
         members = EventMembership.objects.filter(event=event)
-        member_usernames = [membership.user.username for membership in members]
-        return Response({"members": member_usernames})
+        member_data = [
+            {"id": membership.user.id,
+             "username": membership.user.username,
+             "joined_at": membership.joined_at}
+            for membership in members
+        ]                            
+        return Response({"members": member_data})
+    
+    
+    
+    
+    def delete(self, request, event_id):
+        try:
+            event = Event.objects.get(id=event_id)
+        except Event.DoesNotExist:
+            return Response({"error": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            membership = EventMembership.objects.get(user=request.user, event=event)
+        except EventMembership.DoesNotExist:
+            return Response({"error": "You are not a member of this event."}, status=status.HTTP_400_BAD_REQUEST)
+
+        membership.delete()
+        log_event_action(event, f"{request.user.username} left the event.", metadata="left via API")
+
+        return Response({"message": "You have successfully left the event."}, status=status.HTTP_200_OK)
+
