@@ -16,7 +16,7 @@ import os
 from dotenv import load_dotenv
 
 
-print("📁 Current DIR:", os.getcwd())
+
 
 
 load_dotenv()
@@ -26,9 +26,6 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 
 
-print("✅ SECRET_KEY:", SECRET_KEY)
-print("✅ DEBUG:", DEBUG)
-print("✅ ALLOWED_HOSTS:", ALLOWED_HOSTS)
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 

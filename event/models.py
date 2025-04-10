@@ -30,7 +30,7 @@ class EventLog(models.Model):
     event = models.ForeignKey(Event, related_name="logs", on_delete=models.CASCADE)
     action = models.CharField(max_length=255)
     timestamp = models.DateTimeField(auto_now_add=True)
-    metadata = models.JSONField()
+    metadata = models.CharField(max_length=255,blank=False)
 
     def __str__(self):
         return f"{self.action} at {self.timestamp}"

@@ -2,9 +2,13 @@ from rest_framework import serializers
 from .models import Event, EventMembership, EventLog
 
 class EventSerializer(serializers.ModelSerializer):
+    
+    creator = serializers.SlugRelatedField(read_only=True, slug_field='username')
+
     class Meta:
         model = Event
         fields = ['id', 'name', 'description', 'capacity', 'creator', 'status']
+        read_only_fields = ['creator'] 
 
 class EventMembershipSerializer(serializers.ModelSerializer):
     class Meta:

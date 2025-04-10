@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .models import Event, EventMembership, EventLog
 from .serializers import EventSerializer, EventLogSerializer
+from .permissions import IsCreatorOrReadOnly
 
 # Event View (GET, POST, PUT, DELETE operations for Event)
 class EventView(APIView):
@@ -34,6 +35,10 @@ class EventView(APIView):
             event = Event.objects.get(id=event_id)
         except Event.DoesNotExist:
             return Response({"error": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        if event.creator != request.user:
+            return Response({"error": "You do not have permission to edit this event."},
+                            status=status.HTTP_403_FORBIDDEN)
 
         serializer = EventSerializer(event, data=request.data, partial=True)
         if serializer.is_valid():
@@ -47,6 +52,10 @@ class EventView(APIView):
         except Event.DoesNotExist:
             return Response({"error": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
 
+    
+        if event.creator != request.user:
+            return Response({"error": "You do not have permission to delete this event."},
+                        status=status.HTTP_403_FORBIDDEN)
         event.delete()
         return Response({"message": "Event deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
